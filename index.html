@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>마우스 대모험 - 연습용</title>
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Jua&display=swap');
+        body { font-family: 'Jua', sans-serif; background-color: #f0f9ff; margin: 0; overflow: hidden; }
+        .game-canvas { user-select: none; -webkit-user-drag: none; touch-action: none; }
+        
+        /* 나비 날개짓 애니메이션 */
+        @keyframes flap {
+            0% { transform: scaleX(1) rotate(0deg); }
+            50% { transform: scaleX(0.5) rotate(5deg); }
+            100% { transform: scaleX(1) rotate(0deg); }
+        }
+        .animate-flap { animation: flap 0.3s ease-in-out infinite; }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect, useRef } = React;
+
+        // 난이도 설정
+        const DIFFICULTIES = {
+            easy: { name: '쉬움', target: 10, starLimit: 20, speed: 0.6, dragTime: 4.5, butterflySpeed: 0.15 },
+            medium: { name: '중간', target: 15, starLimit: 15, speed: 0.9, dragTime: 3.5, butterflySpeed: 0.25 },
+            hard: { name: '어려움', target: 20, starLimit: 10, speed: 1.2, dragTime: 2.5, butterflySpeed: 0.4 }
+        };
+
+        function App() {
+            const [gameState, setGameState] = useState('menu'); 
+            const [stage, setStage] = useState(1);
+            const [difficulty, setDifficulty] = useState('easy');
+            const [score, setScore] = useState(0);
+
+            const config = DIFFICULTIES[difficulty];
+
+            const startGame = (diff) => {
+                setDifficulty(diff);
+                setStage(1);
+                setScore(0);
+                setGameState('playing');
+            };
+
+            const handleScore = () => {
+                setScore(prev => {
+                    const newScore = prev + 1;
+                    if (newScore >= config.target) setGameState('clear');
+                    return newScore;
+                });
+            };
+
+            return (
+                <div className="w-full h-screen flex items-center justify-center p-4 game-canvas">
+                    <div className="w-full max-w-4xl h-[650px] bg-white rounded-[40px] shadow-2xl relative border-[12px] border-blue-400 overflow-hidden flex flex-col">
+                        
+                        {/* 상단 정보창 */}
+                        {(gameState === 'playing') && (
+                            <div className="h-20 bg-blue-50 flex items-center justify-between px-10 border-b-4 border-blue-100 z-50">
+                                <div className="text-2xl font-bold text-blue-800 bg-white px-6 py-1 rounded-2xl shadow-sm">
+                                    {stage === 1 ? '🎈 풍선 튕기기' : stage === 2 ? '🦋 나비 잡기' : '⭐ 별 지우기'}
+                                </div>
+                                <div className="text-3xl font-bold text-gray-800 bg-white px-8 py-1 rounded-full border-4 border-blue-400">
+                                    성공 횟수: {score} / {config.target}
+                                </div>
+                            </div>
+                        )}
+
+                        <div className="flex-1 relative">
+                            {/* 메뉴 화면 */}
+                            {gameState === 'menu' && (
+                                <div className="w-full h-full flex flex-col items-center justify-center bg-gradient-to-b from-sky-300 to-blue-500">
+                                    <div className="text-[120px] mb-4 animate-bounce">🖱️</div>
+                                    <h1 className="text-7xl font-black text-white mb-6 drop-shadow-xl">마우스 대모험</h1>
+                                    <button onClick={() => setGameState('difficulty')} className="px-20 py-6 bg-yellow-400 text-yellow-900 text-4xl font-bold rounded-full shadow-[0_10px_0_0_#d1a000] hover:translate-y-1 active:translate-y-2 active:shadow-none transition-all">시작하기!</button>
+                                </div>
+                            )}
+
+                            {/* 난이도 선택 */}
+                            {gameState === 'difficulty' && (
+                                <div className="w-full h-full flex flex-col items-center justify-center bg-blue-50">
+                                    <h2 className="text-5xl font-bold text-blue-900 mb-12">얼마나 어렵게 할까요?</h2>
+                                    <div className="flex gap-10">
+                                        {Object.entries(DIFFICULTIES).map(([key, info]) => (
+                                            <button key={key} onClick={() => startGame(key)} className="group w-56 h-64 bg-white border-8 border-blue-200 rounded-[40px] shadow-xl hover:border-blue-500 transition-all flex flex-col items-center justify-center gap-4">
+                                                <span className="text-4xl font-bold text-blue-700">{info.name}</span>
+                                                <div className="text-gray-500 text-xl">목표: {info.target}번</div>
+                                                <div className="w-14 h-14 bg-blue-100 rounded-full flex items-center justify-center group-hover:bg-blue-500 group-hover:text-white transition-colors text-2xl">➔</div>
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* 플레이 화면 */}
+                            {gameState === 'playing' && (
+                                <div className="w-full h-full">
+                                    {stage === 1 && <Stage1 onScore={handleScore} onFail={() => setGameState('gameover')} config={config} />}
+                                    {stage === 2 && <Stage2 onScore={handleScore} config={config} />}
+                                    {stage === 3 && <Stage3 onScore={handleScore} onFail={() => setGameState('gameover')} config={config} />}
+                                </div>
+                            )}
+
+                            {/* 성공 화면 */}
+                            {gameState === 'clear' && (
+                                <div className="w-full h-full flex flex-col items-center justify-center bg-green-100 text-center animate-in fade-in zoom-in duration-300">
+                                    <div className="text-[150px] mb-6">🎉</div>
+                                    <h2 className="text-7xl font-bold text-green-700 mb-10">참 잘했어요!</h2>
+                                    <button onClick={() => {
+                                        if (stage < 3) { setStage(s => s + 1); setScore(0); setGameState('playing'); }
+                                        else setGameState('allclear');
+                                    }} className="px-16 py-6 bg-green-500 text-white text-4xl font-bold rounded-full shadow-lg hover:scale-105 active:scale-95 transition">다음으로 ➔</button>
+                                </div>
+                            )}
+
+                            {/* 실패 화면 */}
+                            {gameState === 'gameover' && (
+                                <div className="w-full h-full flex flex-col items-center justify-center bg-red-100">
+                                    <div className="text-[150px] mb-6">😢</div>
+                                    <h2 className="text-6xl font-bold text-red-600 mb-10">다시 한번 해볼까?</h2>
+                                    <button onClick={() => { setScore(0); setGameState('playing'); }} className="px-16 py-6 bg-red-500 text-white text-4xl font-bold rounded-full shadow-lg active:scale-95 transition">다시 도전! 🔄</button>
+                                </div>
+                            )}
+
+                            {/* 전체 클리어 */}
+                            {gameState === 'allclear' && (
+                                <div className="w-full h-full flex flex-col items-center justify-center bg-gradient-to-tr from-yellow-300 to-orange-400">
+                                    <div className="text-[150px] mb-6 animate-float">🏆</div>
+                                    <h2 className="text-8xl font-black text-white drop-shadow-2xl mb-12">마우스 왕 탄생!</h2>
+                                    <button onClick={() => setGameState('menu')} className="px-16 py-6 bg-white text-orange-600 text-4xl font-bold rounded-full shadow-2xl hover:scale-110 transition">처음으로 가기</button>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+
+        // --- 1단계: 풍선 튕기기 (클릭 연습) ---
+        function Stage1({ onScore, onFail, config }) {
+            const [ball, setBall] = useState({ x: 50, y: 30, vx: 0, vy: 0 });
+            const requestRef = useRef();
+
+            useEffect(() => {
+                const animate = () => {
+                    setBall(b => {
+                        const gravity = 0.025; 
+                        const nvy = b.vy + gravity;
+                        const nx = b.x + b.vx;
+                        const ny = b.y + nvy;
+
+                        if (ny > 110 || ny < -10) {
+                            onFail();
+                            return b;
+                        }
+
+                        let nvx = b.vx;
+                        if (nx > 90 || nx < 10) nvx = -nvx;
+
+                        return { x: nx, y: ny, vx: nvx, vy: nvy };
+                    });
+                    requestRef.current = requestAnimationFrame(animate);
+                };
+                requestRef.current = requestAnimationFrame(animate);
+                return () => cancelAnimationFrame(requestRef.current);
+            }, [onFail]);
+
+            const handleClick = () => {
+                setBall(b => ({
+                    ...b,
+                    vy: -1.25,
+                    vx: (Math.random() - 0.5) * 0.75
+                }));
+                onScore();
+            };
+
+            return (
+                <div className="w-full h-full bg-sky-100 overflow-hidden relative">
+                    <div onClick={handleClick} className="absolute text-[120px] cursor-pointer transition-transform active:scale-90"
+                         style={{ left: `${ball.x}%`, top: `${ball.y}%`, transform: 'translate(-50%, -50%)' }}>🎈</div>
+                    <div className="absolute bottom-10 w-full text-center text-blue-900 text-3xl font-bold bg-white/50 py-3 px-4">
+                        풍선을 클릭해서 하늘 위로 살짝 튕겨주세요!
+                    </div>
+                </div>
+            );
+        }
+
+        // --- 2단계: 나비 잡기 (날아다니는 나비 드래그 연습) ---
+        function Stage2({ onScore, config }) {
+            const [butterflies, setButterflies] = useState([]);
+            const [dragId, setDragId] = useState(null);
+            const containerRef = useRef(null);
+            const requestRef = useRef();
+
+            // 나비 생성
+            useEffect(() => {
+                const spawn = setInterval(() => {
+                    const id = Date.now();
+                    setButterflies(p => [...p, { 
+                        id, 
+                        x: Math.random()*70+15, 
+                        y: Math.random()*40+15, 
+                        vx: (Math.random() - 0.5) * config.butterflySpeed,
+                        vy: (Math.random() - 0.5) * config.butterflySpeed,
+                        timer: config.dragTime 
+                    }]);
+                }, 2500);
+                return () => clearInterval(spawn);
+            }, [config.dragTime, config.butterflySpeed]);
+
+            // 애니메이션 루프: 나비 이동 및 타이머 관리
+            useEffect(() => {
+                const animate = () => {
+                    setButterflies(prev => {
+                        return prev.map(b => {
+                            // 드래그 중인 나비는 위치 계산 건너뜀 (마우스 따라감)
+                            if (b.id === dragId) return { ...b, timer: b.timer - 0.016 };
+
+                            let nx = b.x + b.vx;
+                            let ny = b.y + b.vy;
+                            let nvx = b.vx;
+                            let nvy = b.vy;
+
+                            // 벽 충돌 처리 (화면 안에서만 움직이게)
+                            if (nx < 10 || nx > 90) nvx = -nvx;
+                            if (ny < 10 || ny > 60) nvy = -nvy;
+
+                            return { ...b, x: nx, y: ny, vx: nvx, vy: nvy, timer: b.timer - 0.016 };
+                        }).filter(b => b.timer > 0);
+                    });
+                    requestRef.current = requestAnimationFrame(animate);
+                };
+                requestRef.current = requestAnimationFrame(animate);
+                return () => cancelAnimationFrame(requestRef.current);
+            }, [dragId]);
+
+            const onMove = (e) => {
+                if (!dragId) return;
+                const r = containerRef.current.getBoundingClientRect();
+                const nx = ((e.clientX - r.left) / r.width) * 100;
+                const ny = ((e.clientY - r.top) / r.height) * 100;
+                setButterflies(p => p.map(b => b.id === dragId ? { ...b, x: nx, y: ny } : b));
+            };
+
+            const onUp = (e) => {
+                if (!dragId) return;
+                const r = containerRef.current.getBoundingClientRect();
+                // 바구니 영역에 닿았는지 체크
+                if (e.clientY > r.bottom - 150) {
+                    onScore();
+                    setButterflies(p => p.filter(b => b.id !== dragId));
+                }
+                setDragId(null);
+            };
+
+            return (
+                <div ref={containerRef} className="w-full h-full bg-green-50 relative overflow-hidden" onPointerMove={onMove} onPointerUp={onUp}>
+                    {/* 배경 꽃 장식 */}
+                    <div className="absolute top-20 left-20 text-4xl opacity-30">🌸</div>
+                    <div className="absolute top-40 right-40 text-4xl opacity-30">🌼</div>
+                    <div className="absolute top-10 right-20 text-4xl opacity-30">🌷</div>
+
+                    {/* 바구니 영역 */}
+                    <div className="absolute bottom-0 w-full h-36 bg-yellow-900/10 flex items-center justify-center text-[150px] border-t-4 border-dashed border-yellow-200">
+                        🧺
+                    </div>
+
+                    {/* 나비들 */}
+                    {butterflies.map(b => (
+                        <div key={b.id} onPointerDown={e => { e.stopPropagation(); setDragId(b.id); }}
+                             className={`absolute text-7xl cursor-grab touch-none select-none transition-transform ${dragId === b.id ? 'z-50 scale-125' : 'animate-flap'}`}
+                             style={{ 
+                                left: `${b.x}%`, 
+                                top: `${b.y}%`, 
+                                transform: `translate(-50%, -50%) ${b.vx > 0 ? '' : 'scaleX(-1)'}` 
+                             }}>
+                            🦋
+                            {/* 타이머 바 */}
+                            <div className="absolute -top-4 left-1/2 -translate-x-1/2 w-12 h-2 bg-gray-200 rounded-full overflow-hidden border border-white">
+                                <div className="h-full bg-red-500 transition-all" style={{ width: `${(b.timer / config.dragTime) * 100}%` }}></div>
+                            </div>
+                        </div>
+                    ))}
+
+                    <div className="absolute top-6 w-full text-center pointer-events-none">
+                        <div className="inline-block bg-white/80 px-6 py-2 rounded-full shadow-sm">
+                            <span className="text-green-800 text-2xl font-bold">날아다니는 나비를 잡아 바구니에 쏙!</span>
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+
+        // --- 3단계: 별 지우기 (더블클릭 연습) ---
+        function Stage3({ onScore, onFail, config }) {
+            const [stars, setStars] = useState([]);
+            
+            useEffect(() => {
+                const spawn = setInterval(() => {
+                    setStars(p => [...p, { id: Date.now(), x: Math.random()*85+7, y: Math.random()*75+10, size: Math.random()*20+40 }]);
+                }, 1200);
+                return () => clearInterval(spawn);
+            }, []);
+
+            useEffect(() => {
+                if (stars.length >= config.starLimit) {
+                    onFail();
+                }
+            }, [stars.length, config.starLimit]);
+
+            return (
+                <div className="w-full h-full bg-slate-900 relative overflow-hidden">
+                    <div className="absolute top-0 left-0 h-4 bg-red-500 transition-all duration-300 z-50"
+                         style={{ width: `${(stars.length / config.starLimit) * 100}%` }}></div>
+                    
+                    {stars.map(s => (
+                        <div key={s.id} onDoubleClick={() => { setStars(p => p.filter(i => i.id !== s.id)); onScore(); }}
+                             className="absolute text-yellow-300 cursor-pointer hover:scale-110 transition-transform active:brightness-150"
+                             style={{ left: `${s.x}%`, top: `${s.y}%`, fontSize: `${s.size}px`, transform: 'translate(-50%, -50%)', filter: 'drop-shadow(0 0 10px #facc15)' }}>
+                            ⭐
+                        </div>
+                    ))}
+                    
+                    <div className="absolute bottom-6 w-full text-center text-white space-y-2 pointer-events-none">
+                        <div className="text-3xl font-bold bg-yellow-500/20 py-2 rounded-full mx-20">
+                             별을 <span className="text-yellow-400">두 번(더블클릭)</span> 눌러서 지우세요!
+                        </div>
+                        <div className="text-xl opacity-80">
+                            화면에 별이 가득 차면( {stars.length} / {config.starLimit} ) 게임이 끝나요!
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
